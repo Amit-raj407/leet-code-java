@@ -18,8 +18,11 @@ public class MergeIntervals {
 
         merged.add(current);
 
-        // Input: intervals = [[1,4],[4,5]]
+        // Input: intervals = [[1,4],[3,5]] -> Merge
         // Output: [[1,5]]
+
+        // Input: intervals = [[1,4],[5,7]] -> Do not merge
+        // Output: [[1,4][5,7]]
 
         for(int i = 1; i < intervals.length; i++) {
             int[] interval = intervals[i];
