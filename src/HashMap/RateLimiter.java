@@ -1,33 +1,38 @@
 package HashMap;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class RateLimiter {
     int maxTokens = 1000;
-    long timeWindow = 36000000;
+    long timeWindow = 36000000; // in ms
 
-    HashMap<String, RateLimiterBucket> rateLimiterBucketMap = new HashMap<>();
+    ConcurrentHashMap<String, RateLimiterBucket> rateLimiterBucketMap = new ConcurrentHashMap<>();
 
+    public synchronized String getApiCall(String userId) {
+        RateLimiterBucket bucket = rateLimiterBucketMap.get(userId);
 
-    public String getApiCall(String userId) {
-        RateLimiterBucket rateLimiterBucket = rateLimiterBucketMap.get(userId);
-        if(rateLimiterBucket == null) {
-            RateLimiterBucket rateLimiterBucketData = new RateLimiterBucket();
-            rateLimiterBucketData.initialCallTime = System.currentTimeMillis();
-            rateLimiterBucketData.totalTokens++;
-            rateLimiterBucketMap.put(userId, rateLimiterBucketData);
-        } else {
-            rateLimiterBucket.totalTokens++;
-            if (this.isTokenExpired(rateLimiterBucket)) {
-                return "Error";
-            }
+        long currentTime = System.currentTimeMillis();
+
+        if (bucket == null) {
+            bucket = new RateLimiterBucket();
+            bucket.initialCallTime = currentTime;
+            bucket.totalTokens = 1;
+            rateLimiterBucketMap.put(userId, bucket);
+            return "Data";
         }
+
+        // Reset if time window passed
+        if (currentTime - bucket.initialCallTime > timeWindow) {
+            bucket.totalTokens = 1;
+            bucket.initialCallTime = currentTime;
+            return "Data";
+        }
+
+        if (bucket.totalTokens >= maxTokens) {
+            return "Error"; // rate limit exceeded
+        }
+
+        bucket.totalTokens++;
         return "Data";
     }
-
-    public boolean isTokenExpired(RateLimiterBucket rateLimiterBucket) {
-        return rateLimiterBucket.totalTokens > maxTokens &&
-                (System.currentTimeMillis() - rateLimiterBucket.initialCallTime) > timeWindow;
-    }
-
 }
