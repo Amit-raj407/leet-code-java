@@ -1,0 +1,225 @@
+Functional
+
+Upload
+Download
+List
+Delete
+Create buckets/folder
+Object metadata - stores name, size, timestamps, owner, etags, permission
+Access control
+Versioning, old kept for sometime after overwrite
+
+
+NFR
+
+Scalable - system should support billion/trillions of objects
+durability - data should survive, even if disk fails, server dies, data center dead (we need replication)
+availability - uploads/downloads should work always
+low latency - reads should be fast
+consistency
+
+security - data encryption, IAM, audit
+Fault tolerance - node failed, network failed - system should survive
+
+Cost efficiency - cold storage, archieve, compress
+
+
+Capacity Estimation
+
+assume
+100M users
+average there will be 100 files/users
+avg size of file is 5MB
+
+total objects can be = 100M * 100 = 10K million objects
+size required - 10k million * 5MB = 50k million MB
+
+50k million MB is size of 1 disk
+we need replication
+we will have like 3 replicas
+total size - 50k million MB * 3 = 150k million MB = 150 PB
+
+
+APIs
+PUT
+/bucket/object
+GET
+/bucket/object
+Delete
+/bucket/object
+List
+/bucket?prefix=images
+
+
+S3
+Read heavy - 100:1
+
+
+HLD
+(key) - (blob file + metadata)
+
+/photos/user1/img.jpg
+
+High Lvl Components
+
+Client
+
+API GATEWAY / Load Balancer (entry point)
+|
+Metadata Service
+        |
+Obj storage nodes           Authentication
+Replication layer
+
+
+metadata Service
+actual file data and the metadata will be separated
+
+metadata: {
+    objKey,
+    bucketName
+    size
+    storageLoc
+    replicationInfo
+    Versioning
+    etag
+    ACL
+    timestamps
+}
+
+why separate
+file data is huge, bandwidth heavy
+metadata is small and queried frequently
+
+separation will provide
+faster lookups
+individual scaling
+cheaper storage mgmt
+
+Object storage nodes
+stores
+images
+videos
+files
+PDFS
+backups
+
+usually this data is distributed across many machines
+chunk based storage
+
+
+Upload Flow
+1. PUT
+/photos/img1.jpg
+
+2. gateway Authentication, token, permissions, bucket Access
+
+3. metadata svc
+will decide where object will live
+replication targets
+
+eg, node s1, s2, s18
+Decision based on available space, rack awareness, load
+
+4. Object stored
+blob written to storage nodes and replicated immediately
+
+
+5. metadata is persisted, and after persist upload acknowledgement
+
+Download Flow
+client request
+/GET
+/photos/img1.jpg
+metadata lookups finds S1, S2, s18
+it chooses best (nearest or the least loaded replica)
+
+then storage node steams the bytes directly
+
+partitioning
+s3 stores billions of data
+so single db impossible
+
+need partitioning
+
+strategy
+partion = hash(objectKey) mod N
+
+to archieve durability replication layer is required
+objects replicated across disks, servers, availability zones
+
+
+Trade offs
+replication - data duplicated, simple fast but expensive
+
+Erasure coding
+storage efficient
+split the data
+add some parity chunks
+
+it can reconstruct data after failure
+
+
+stateless servers
+CAN ADD OR REMOVE SERVERS ANYTIME
+HORIZONTAL SCALING EASY
+
+caching
+frequently accessed metadata should be cached
+
+
+Storage and Metadata Design 
+
+How a image will be stored - 5MB data
+C1 - some MB
+c2 - some MB
+These are chunks
+
+this will support parallel uploads
+parallel replication
+better fault tolerance
+faster recovery
+
+Object layout of metadata
+{
+    objectKey: "fileName",
+    chunks: {c1, c2, c3}
+}
+
+metadata is critical
+if lost data is unreachable
+table can have
+
+objectId
+bucket
+objectKey
+chunks
+etag
+timestamps
+storageClass
+Version
+size
+owner
+ACL
+
+
+DB requirements
+low latency
+availability
+strong consistency
+faster lookups
+
+type of DB
+KV DB
+(bucket + objectKey) - metadata
+
+metadata also should be partitioned
+partition = hash(bucket + objKey) mod N
+
+Hot partition
+suppose millions of rquests hit to get a video
+1 partition will become overloaded
+solution
+automatic repartition
+adaptive sharding
+caching
