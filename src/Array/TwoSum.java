@@ -17,8 +17,8 @@ package Array;
 public class TwoSum {
     public int[] twoSum(int[] numbers, int target) {
         int i = 0;
-        int j = numbers.length;
-        j = j - 1;
+        int j = numbers.length - 1;
+        
         int[] result = new int[2];
         int sum = 0;
         while(i < j) {
