@@ -14,7 +14,7 @@ public class TreeDiameter {
         int lh = height(node.left, diameter);
         int rh = height(node.right, diameter);
 
-        diameter[0] = Math.max(lh, rh);
+        diameter[0] = Math.max(diameter[0], lh + rh);
 
         return 1 + Math.max(lh, rh);
     }
